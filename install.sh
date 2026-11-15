@@ -34,7 +34,7 @@ write_standards() {
 install_hooks() {
   mkdir -p "$target/hooks"
   cp "$here"/hooks/*.sh "$target/hooks/"
-  chmod +x "$target/hooks/on-save.sh" "$target/hooks/on-stop.sh"
+  chmod +x "$target"/hooks/on-*.sh
   local venv="$target/hooks/.venv"
   if [ "$("$venv/bin/lizard" --version 2>/dev/null)" != "$lizard_version" ]; then
     python3 -m venv "$venv"
@@ -47,16 +47,21 @@ write_settings() {
   local settings="$target/settings.json"
   [ -f "$settings" ] || echo '{}' > "$settings"
   jq --arg mode "$1" --arg dir "$target/hooks" '
-    def ours: any(.hooks[]?; (.command // "") | test("/hooks/on-(save|stop)\\.sh$"));
+    def ours: any(.hooks[]?; (.command // "") | test("/hooks/on-(save|stop|shell)\\.sh( |$)"));
     def entry(name; seconds; status):
       {hooks: [{type: "command", command: ($dir + "/" + name), timeout: seconds, statusMessage: status}]};
+    def quiet(name; seconds):
+      {hooks: [{type: "command", command: ($dir + "/" + name), timeout: seconds}]};
     def without(event): (.hooks[event] // []) | map(select(ours | not));
     .hooks = (.hooks // {})
+    | .hooks.PreToolUse = without("PreToolUse")
     | .hooks.PostToolUse = without("PostToolUse")
     | .hooks.Stop = without("Stop")
     | .hooks.SubagentStop = without("SubagentStop")
     | if $mode == "with" then
-        .hooks.PostToolUse += [{matcher: "Edit|Write|MultiEdit"} + entry("on-save.sh"; 60; "Formatting and checking...")]
+        .hooks.PreToolUse += [{matcher: "Bash"} + quiet("on-shell.sh before"; 10)]
+        | .hooks.PostToolUse += [{matcher: "Edit|Write|MultiEdit"} + entry("on-save.sh"; 60; "Formatting and checking...")]
+        | .hooks.PostToolUse += [{matcher: "Bash"} + quiet("on-shell.sh after"; 60)]
         | .hooks.Stop = [entry("on-stop.sh"; 120; "Checking code quality...")] + .hooks.Stop
         | .hooks.SubagentStop += [entry("on-stop.sh"; 120; "Checking code quality...")]
       else . end
@@ -71,7 +76,7 @@ mkdir -p "$target"
 if [ "${1:-}" = "--uninstall" ]; then
   write_standards without
   write_settings without
-  rm -rf "$target/hooks/.venv" "$target"/hooks/{lib,on-save,on-stop}.sh
+  rm -rf "$target/hooks/.venv" "$target"/hooks/{lib,on-save,on-shell,on-stop}.sh
   echo "removed from $target"
 else
   need python3

@@ -8,11 +8,35 @@ to them.
 - **[hooks/on-save.sh](hooks/on-save.sh)**: after each file Claude edits, formats it with
   the project's own formatter (Prettier, Biome, Ruff, Black, rustfmt, gofmt; only when the
   project has it configured) and reports a file over 400 lines.
+- **[hooks/on-shell.sh](hooks/on-shell.sh)**: around each shell command Claude runs, finds
+  the files the command changed (with `sed`, a script, a heredoc) and treats them as
+  edited too.
 - **[hooks/on-stop.sh](hooks/on-stop.sh)**: when a turn ends, measures the functions in the
-  files edited during it and reports any over 60 lines, a complexity of 10 or 5 parameters.
+  files edited during it and reports any over 60 lines, 5 parameters or the complexity
+  limit of its language.
 
 The hooks judge how code is built, not whether it is correct, and report each problem once
 per session. Nothing is added to any project.
+
+## What counts
+
+- **Only what the session made worse.** The first time a session touches a file, the hooks
+  keep it as committed (`HEAD`). A function or file that was already over a limit, and is
+  no further over it, is not reported; one that grew is, with what it was. A file with no
+  committed version is all the session's.
+- **Complexity is per language**: 10, and 15 in Go, where every `if err != nil` is a
+  branch. To add or change one, edit `complexity_limit` in
+  [hooks/lib.sh](hooks/lib.sh).
+- **Test files** (`_test.go`, `.test.*`, `.spec.*`, `test_*.py`, `tests/`, `__tests__/`)
+  keep the file length limit, but their functions are not measured.
+- **File length** is checked for JavaScript, TypeScript, Python, Rust, Go and shell;
+  functions are measured for all of those but shell.
+- **Shell edits** are seen in the repository the session runs in. A file changed in
+  another repository, or committed by the same command that changed it, is not.
+
+To support another language, give its extensions a kind in `classify`
+([hooks/lib.sh](hooks/lib.sh)), add its formatter to `format_file`, and add the kind to
+`measured` if [lizard reads it](https://github.com/terryyin/lizard#languages).
 
 ## Install
 
@@ -62,5 +86,5 @@ Environment variables, read by the hooks:
 | `CLAUDE_QUALITY=0` | turns the end-of-turn function check off | on |
 | `CLAUDE_ONSAVE_MAX_LINES` | file length limit | 400 |
 | `CLAUDE_QUALITY_FUNCTION_LINES` | function length limit | 60 |
-| `CLAUDE_QUALITY_COMPLEXITY` | complexity limit | 10 |
+| `CLAUDE_QUALITY_COMPLEXITY` | one complexity limit for every language | 10, Go 15 |
 | `CLAUDE_QUALITY_PARAMS` | parameter limit | 5 |
