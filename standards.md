@@ -12,6 +12,10 @@ These apply to every project unless the project's own instructions say otherwise
   Mention unrelated problems you notice; do not fix them unasked.
 - **Goal-driven.** Turn the task into something checkable (a failing test, a measured
   number) and keep going until the check passes.
+- **Read before writing.** Read the code around a change first, and search for a function,
+  type or pattern that already does the job before writing a new one.
+- **Review your own diff.** Before finishing, read the whole diff as a reviewer who has
+  never seen the task, and fix what they would question.
 
 ## Code
 
@@ -53,11 +57,78 @@ yours to fix.
   exception: the hooks hold you to them, so they are not added to the project's linter.
 - **No dead code, stale comments or TODOs** in finished work.
 
+## Structure
+
+Decide where code belongs before writing it. An existing project's layout and its
+language's conventions come first; these rules shape new projects, new areas and code that
+has no layout yet. Scale them to the project: a three-file tool needs no folders.
+
+- **One responsibility per file, named after it.** A file holds one main concept and its
+  name is that concept (`parseConfig.ts` exports `parseConfig`), with the private helpers
+  and types only it uses alongside. If you cannot describe a file without "and", it is two
+  files. No grab-bag files: `utils`, `helpers`, `common`, `misc`, `shared`.
+- **Folders group by responsibility, not by kind.** Group what changes together by feature
+  or domain (`billing/`, `auth/`), not by what it is (`controllers/`, `types/`,
+  `services/`). A recursive listing should read as a table of contents. Split a directory
+  into named subdirectories once it mixes two concerns or passes about ten source files;
+  do not create a folder for one file.
+- **Dependencies point one way.** Entry points (CLI, HTTP handlers, UI) call domain logic;
+  domain logic never imports them. Databases, network, filesystem and clock sit behind
+  interfaces at the edges and are passed in. No import cycles.
+- **Small public surface.** Export only what another module needs; everything else stays
+  private. One area uses another through its public entry point, not its internals. Inside
+  an area, import from the file that defines the thing: no barrel files that only
+  re-export. A simple interface matters more than a simple implementation: a module that
+  only passes calls through hides nothing.
+- **Separate deciding from doing.** Keep the code that computes a result apart from the
+  code that reads and writes. The deciding part is then pure and tested without mocks.
+- **Validate at the boundary.** Parse outside input (requests, files, environment, API
+  responses) into typed values where it enters; inside, trust the types. Never swallow an
+  error: handle it where something can be done about it, or pass it up with context.
+- **Tests mirror the code.** Each module's tests sit where the language's convention puts
+  them and are named after the module, so either is found from the other.
+
+## Readability
+
+Code is read far more often than it is written, and it is too complex when a reader cannot
+understand it quickly.
+
+- **Obvious over clever.** Write the version a newcomer follows on the first read. If a
+  piece is complex where its purpose is simple, look again for the simpler way.
+- **Names carry the meaning.** Long enough to say what the thing is or does, one word for
+  one thing across the codebase, unique enough to grep. No `data`, `info`, `manager`,
+  `handle` or abbreviations that need explaining.
+- **Comments explain why.** Never what the code does: if that needs saying, rename or
+  restructure. Say why it is this way, what it must not break, and what a public function
+  promises. Nothing about the change, story, ticket or bug that prompted it ("added",
+  "fixed for the login bug"): that belongs in the commit message.
+- **One job per function, at one level.** A function either orchestrates named steps or
+  does one of them, not both. It either returns a value or changes something, and its name
+  says which.
+- **Top-down files.** The main thing a file exports comes first, the helpers it calls
+  below, in the order they are called, so the file reads from intent to detail.
+- **Types tell the truth.** Give every concept one named type and make invalid states
+  impossible to build: a union of cases, not optional fields and flags that must agree. No
+  `any`, untyped maps or stringly-typed values where a type fits.
+- **No magic values or flag arguments.** A literal with meaning gets a named constant. A
+  boolean that switches a function's behaviour becomes two functions or a named option.
+- **No defensive noise.** Do not check for what the types rule out, catch what cannot be
+  thrown, or add a fallback that hides a failure. Fail loudly at the point of the mistake.
+- **Flat control flow.** Deal with errors and edge cases first and return; the main path
+  stays unindented at the bottom. Nesting deeper than three levels becomes a named
+  function.
+- **Least mechanism.** Reach for a language feature, then the standard library, then a
+  dependency the project already has, before adding a dependency or an abstraction.
+- **Small, local state.** Immutable by default, declared where it is used and in the
+  narrowest scope. No mutable module-level state; pass it in.
+
 ## Evidence
 
 - **Measure before and after.** For a change meant to improve something, record the
   baseline first, then show the result against it.
 - **Prefer real projects to synthetic tests** as evidence, and say which is which.
+- **Tests must be able to fail.** A test fails when the code it covers breaks, and a bug
+  fix comes with a test that failed before the fix.
 - **Report plainly** what was verified, what failed and what was not run.
 
 ## Repositories
