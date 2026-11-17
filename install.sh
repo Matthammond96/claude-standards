@@ -1,39 +1,93 @@
 #!/bin/bash
-# Install the coding standards and their hooks into Claude Code's user settings
-# (~/.claude, or $CLAUDE_CONFIG_DIR). Safe to run again: it replaces what it installed
-# before and leaves everything else in CLAUDE.md and settings.json as it was.
-#   ./install.sh             install or update
-#   ./install.sh --uninstall remove it
+# Install the coding standards and their hooks into the user settings of coding agents,
+# each described by a recipe in recipes/ and named by its file (recipes/codex.json is
+# --codex). Safe to run again: it replaces what it installed before and leaves everything
+# else in the agent's instructions and hook config as it was.
+#   ./install.sh --claude-code --codex        install or update for these agents
+#   ./install.sh --codex --uninstall          remove it from these agents
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
-target="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 lizard_version="1.26.0"
 begin="<!-- claude-standards:begin -->"
 end="<!-- claude-standards:end -->"
 
+# Which hook runs at each moment a recipe can name, in the order they are registered.
+# turn_end goes before the agent's other turn-end hooks, so its request to keep going is
+# not lost behind theirs.
+roles='{
+  "before_shell": {"command": "on-shell.sh before", "timeout": 10},
+  "after_edit": {"command": "on-save.sh", "timeout": 60, "status": "Formatting and checking..."},
+  "after_shell": {"command": "on-shell.sh after", "timeout": 60},
+  "turn_end": {"command": "on-stop.sh", "timeout": 120, "status": "Checking code quality...", "first": true},
+  "subagent_end": {"command": "on-stop.sh", "timeout": 120, "status": "Checking code quality..."}
+}'
+
 need() { command -v "$1" >/dev/null 2>&1 || { echo "install: $1 is required" >&2; exit 1; }; }
 
-# CLAUDE.md without the section between the markers.
-without_section() {
-  [ -f "$target/CLAUDE.md" ] || return 0
-  awk -v b="$begin" -v e="$end" '$0 == b { skip = 1 } !skip { print } $0 == e { skip = 0 }' \
-    "$target/CLAUDE.md"
+usage() {
+  local agents; agents=$(cd "$here/recipes" && ls -- *.json | sed 's/^/--/; s/\.json$//' | tr '\n' ' ')
+  echo "usage: install.sh [--uninstall] <agent>...    agents: $agents" >&2
+  exit 1
 }
 
-write_standards() {
-  local rest; rest=$(without_section)
-  {
-    [ -n "$rest" ] && printf '%s\n\n' "$rest"
-    [ "$1" = "with" ] && { echo "$begin"; cat "$here/standards.md"; echo "$end"; }
-    true
-  } > "$target/CLAUDE.md.new"
-  mv "$target/CLAUDE.md.new" "$target/CLAUDE.md"
+# Stops the installer, saying why, when recipe $1 does not match recipe.schema.json.
+check_recipe() {
+  local problems; problems=$(recipe_problems "$here/recipes/$1.json")
+  [ -z "$problems" ] && return 0
+  printf 'install: recipes/%s.json does not match recipe.schema.json:\n%s\n' "$1" "$problems" >&2
+  exit 1
 }
 
+# What is wrong with recipe file $1, one problem a line. Reads the parts of JSON Schema
+# that recipe.schema.json uses: object and string types, required, unknown fields and $ref.
+recipe_problems() {
+  jq -r --slurpfile schema "$here/recipe.schema.json" '
+    def problems($s; $at):
+      . as $value
+      | if $s["$ref"] then problems($schema[0] | getpath($s["$ref"] | ltrimstr("#/") | split("/")); $at)
+        elif $s.type == "string" then (if type == "string" then empty else "\($at) must be a string" end)
+        elif type != "object" then "\($at) must be an object"
+        else
+          ($s.required[]? | select(in($value) | not) | "\($at).\(.) is missing"),
+          (keys[] | select(in($s.properties) | not) | "\($at).\(.) is not a known field"),
+          (to_entries[] | select(.key | in($s.properties))
+            | . as {key: $key, value: $field} | $field | problems($s.properties[$key]; "\($at).\($key)"))
+        end;
+    problems($schema[0]; "")' "$1"
+}
+
+# Reads recipe $1 into recipe (its file), target (the agent's directory), instructions and
+# hook_config.
+load_recipe() {
+  recipe="$here/recipes/$1.json"
+  local variable default
+  variable=$(jq -r .home.variable "$recipe")
+  default=$(jq -r .home.default "$recipe")
+  target="${!variable:-${default/#\~/$HOME}}"
+  instructions="$target/$(jq -r .instructions "$recipe")"
+  hook_config="$target/$(jq -r .hook_config "$recipe")"
+}
+
+install_into() {
+  install_hooks
+  write_standards with
+  write_hook_config with
+  echo "installed for $(jq -r .name "$recipe") in $target. $(jq -r '.after_install // ""' "$recipe")"
+}
+
+uninstall_from() {
+  write_standards without
+  write_hook_config without
+  rm -rf "$target/hooks/.venv" "$target"/hooks/{lib,on-save,on-shell,on-stop}.sh "$target/hooks/recipe.json"
+  echo "removed from $(jq -r .name "$recipe") in $target"
+}
+
+# The hooks, and the recipe they read to find the files an edit changed.
 install_hooks() {
   mkdir -p "$target/hooks"
   cp "$here"/hooks/*.sh "$target/hooks/"
+  cp "$recipe" "$target/hooks/recipe.json"
   chmod +x "$target"/hooks/on-*.sh
   local venv="$target/hooks/.venv"
   if [ "$("$venv/bin/lizard" --version 2>/dev/null)" != "$lizard_version" ]; then
@@ -42,46 +96,63 @@ install_hooks() {
   fi
 }
 
-# settings.json with our hook entries removed and, for "with", added again.
-write_settings() {
-  local settings="$target/settings.json"
-  [ -f "$settings" ] || echo '{}' > "$settings"
-  jq --arg mode "$1" --arg dir "$target/hooks" '
+# The instructions file without the section between the markers.
+without_section() {
+  [ -f "$instructions" ] || return 0
+  awk -v b="$begin" -v e="$end" '$0 == b { skip = 1 } !skip { print } $0 == e { skip = 0 }' \
+    "$instructions"
+}
+
+write_standards() {
+  local rest; rest=$(without_section)
+  {
+    [ -n "$rest" ] && printf '%s\n\n' "$rest"
+    [ "$1" = "with" ] && { echo "$begin"; cat "$here/standards.md"; echo "$end"; }
+    true
+  } > "$instructions.new"
+  mv "$instructions.new" "$instructions"
+}
+
+# The hook config with our hooks removed and, for "with", registered again at each moment
+# the recipe names.
+write_hook_config() {
+  [ -f "$hook_config" ] || echo '{}' > "$hook_config"
+  jq --arg mode "$1" --arg dir "$target/hooks" --argjson roles "$roles" --slurpfile recipe "$recipe" '
     def ours: any(.hooks[]?; (.command // "") | test("/hooks/on-(save|stop|shell)\\.sh( |$)"));
-    def entry(name; seconds; status):
-      {hooks: [{type: "command", command: ($dir + "/" + name), timeout: seconds, statusMessage: status}]};
-    def quiet(name; seconds):
-      {hooks: [{type: "command", command: ($dir + "/" + name), timeout: seconds}]};
-    def without(event): (.hooks[event] // []) | map(select(ours | not));
-    .hooks = (.hooks // {})
-    | .hooks.PreToolUse = without("PreToolUse")
-    | .hooks.PostToolUse = without("PostToolUse")
-    | .hooks.Stop = without("Stop")
-    | .hooks.SubagentStop = without("SubagentStop")
+    def group($role; $at):
+      ($at | if .matcher then {matcher} else {} end)
+      + {hooks: [{type: "command", command: ($dir + "/" + $role.command), timeout: $role.timeout}
+          + (if $role.status then {statusMessage: $role.status} else {} end)]};
+    def register($role; $at):
+      if $role.first then .hooks[$at.event] = [group($role; $at)] + (.hooks[$at.event] // [])
+      else .hooks[$at.event] += [group($role; $at)] end;
+    ($recipe[0].events) as $events
+    | .hooks = ((.hooks // {}) | map_values(map(select(ours | not))))
     | if $mode == "with" then
-        .hooks.PreToolUse += [{matcher: "Bash"} + quiet("on-shell.sh before"; 10)]
-        | .hooks.PostToolUse += [{matcher: "Edit|Write|MultiEdit"} + entry("on-save.sh"; 60; "Formatting and checking...")]
-        | .hooks.PostToolUse += [{matcher: "Bash"} + quiet("on-shell.sh after"; 60)]
-        | .hooks.Stop = [entry("on-stop.sh"; 120; "Checking code quality...")] + .hooks.Stop
-        | .hooks.SubagentStop += [entry("on-stop.sh"; 120; "Checking code quality...")]
+        reduce ($roles | to_entries[] | select(.key | in($events))) as $r
+          (.; register($r.value; $events[$r.key]))
       else . end
     | .hooks |= with_entries(select(.value | length > 0))
     | if .hooks == {} then del(.hooks) else . end
-  ' "$settings" > "$settings.new"
-  mv "$settings.new" "$settings"
+  ' "$hook_config" > "$hook_config.new"
+  mv "$hook_config.new" "$hook_config"
 }
 
 need jq
-mkdir -p "$target"
-if [ "${1:-}" = "--uninstall" ]; then
-  write_standards without
-  write_settings without
-  rm -rf "$target/hooks/.venv" "$target"/hooks/{lib,on-save,on-shell,on-stop}.sh
-  echo "removed from $target"
-else
-  need python3
-  install_hooks
-  write_standards with
-  write_settings with
-  echo "installed in $target (restart Claude Code sessions to pick it up)"
-fi
+mode=with
+agents=()
+for arg in "$@"; do
+  case "$arg" in
+    --uninstall) mode=without ;;
+    --*) [ -f "$here/recipes/${arg#--}.json" ] || usage; agents+=("${arg#--}") ;;
+    *) usage ;;
+  esac
+done
+[ "${#agents[@]}" -gt 0 ] || usage
+[ "$mode" = "without" ] || need python3
+for agent in "${agents[@]}"; do check_recipe "$agent"; done
+for agent in "${agents[@]}"; do
+  load_recipe "$agent"
+  mkdir -p "$target"
+  if [ "$mode" = "with" ]; then install_into; else uninstall_from; fi
+done

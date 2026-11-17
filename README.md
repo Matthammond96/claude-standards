@@ -1,11 +1,14 @@
 # claude-standards
 
-Coding standards for every Claude Code session on a machine, and the hooks that hold Claude
-to them.
+Coding standards for every coding-agent session on a machine (Claude Code, Codex), and the
+hooks that hold the agent to them.
 
-- **[standards.md](standards.md)**: the rules, installed into `~/.claude/CLAUDE.md` so every
-  session reads them.
-- **[hooks/on-save.sh](hooks/on-save.sh)**: after each file Claude edits, formats it with
+- **[standards.md](standards.md)**: the rules, installed into the agent's instructions
+  (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`) so every session reads them.
+- **[recipes/](recipes/)**: one recipe per agent, saying where it keeps its instructions
+  and hooks and what its hooks are called, checked against
+  [recipe.schema.json](recipe.schema.json). To support another agent, add a recipe.
+- **[hooks/on-save.sh](hooks/on-save.sh)**: after each file the agent edits, formats it with
   the project's own formatter (Prettier, Biome, Ruff, Black, rustfmt, gofmt; only when the
   project has it configured) and reports a file over 400 lines.
 - **[hooks/on-shell.sh](hooks/on-shell.sh)**: around each shell command Claude runs, finds
@@ -44,28 +47,32 @@ Needs `jq` and `python3` (with `venv`).
 
 ```sh
 git clone git@github.com:Matthammond96/claude-standards.git
-claude-standards/install.sh
+claude-standards/install.sh --claude-code --codex
 ```
 
-The installer:
+Name one or more agents; each is a recipe in [recipes/](recipes/), and `./install.sh` alone
+lists them. For each agent, in its directory (`~/.claude`, `~/.codex`), the installer:
 
-1. copies the hooks to `~/.claude/hooks/`;
+1. copies the hooks, and the agent's recipe, to `hooks/`;
 2. installs the analyser ([lizard](https://github.com/terryyin/lizard), pinned) into a
-   private virtualenv at `~/.claude/hooks/.venv`;
-3. writes the standards into `~/.claude/CLAUDE.md` between
+   private virtualenv at `hooks/.venv`;
+3. writes the standards into the agent's instructions (`CLAUDE.md`, `AGENTS.md`) between
    `<!-- claude-standards:begin -->` and `<!-- claude-standards:end -->`, keeping whatever
    else the file holds;
-4. registers the hooks in `~/.claude/settings.json`, keeping every other setting and hook.
+4. registers the hooks in the agent's hook config (`settings.json`, `hooks.json`), keeping
+   every other setting and hook.
 
-Restart running Claude Code sessions afterwards. Set `CLAUDE_CONFIG_DIR` to install
-somewhere other than `~/.claude`.
+Restart running sessions afterwards. Codex runs only hooks you have trusted: review them
+with `/hooks`. The agent's own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) installs
+somewhere else.
 
 ## Update
 
-Edit the standards or hooks here, never the installed copies, then on each machine:
+Edit the standards, hooks or recipes here, never the installed copies, then on each
+machine:
 
 ```sh
-git pull && ./install.sh
+git pull && ./install.sh --claude-code --codex
 ```
 
 Running the installer again replaces what it installed before.
@@ -73,7 +80,7 @@ Running the installer again replaces what it installed before.
 ## Uninstall
 
 ```sh
-./install.sh --uninstall
+./install.sh --claude-code --codex --uninstall
 ```
 
 ## Switches

@@ -1,0 +1,15 @@
+{
+  "name": "Codex",
+  "home": { "variable": "CODEX_HOME", "default": "~/.codex" },
+  "instructions": "AGENTS.md",
+  "hook_config": "hooks.json",
+  "events": {
+    "before_shell": { "event": "PreToolUse", "matcher": "Bash" },
+    "after_edit": { "event": "PostToolUse", "matcher": "Edit|Write" },
+    "after_shell": { "event": "PostToolUse", "matcher": "Bash" },
+    "turn_end": { "event": "Stop" },
+    "subagent_end": { "event": "SubagentStop" }
+  },
+  "edited_files": ".cwd as $cwd | .tool_input.command // \"\" | split(\"\\n\")[] | capture(\"^\\\\*\\\\*\\\\* (Add File|Update File|Move to): (?<path>.+)$\") | .path | if startswith(\"/\") then . else $cwd + \"/\" + . end",
+  "after_install": "Restart running Codex sessions, then review and trust the hooks with /hooks: Codex skips hooks it has not been told to trust."
+}

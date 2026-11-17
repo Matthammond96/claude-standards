@@ -1,0 +1,15 @@
+{
+  "name": "Claude Code",
+  "home": { "variable": "CLAUDE_CONFIG_DIR", "default": "~/.claude" },
+  "instructions": "CLAUDE.md",
+  "hook_config": "settings.json",
+  "events": {
+    "before_shell": { "event": "PreToolUse", "matcher": "Bash" },
+    "after_edit": { "event": "PostToolUse", "matcher": "Edit|Write|MultiEdit" },
+    "after_shell": { "event": "PostToolUse", "matcher": "Bash" },
+    "turn_end": { "event": "Stop" },
+    "subagent_end": { "event": "SubagentStop" }
+  },
+  "edited_files": ".tool_response.filePath // .tool_input.file_path // empty",
+  "after_install": "Restart running Claude Code sessions to pick it up."
+}

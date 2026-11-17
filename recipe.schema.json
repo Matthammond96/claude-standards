@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent recipe",
+  "description": "Where one coding agent keeps its instructions and hooks, and what its hooks are called. install.sh checks every recipe against this schema (types, required fields, no unknown fields, $ref) before it installs anything.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "home", "instructions", "hook_config", "events", "edited_files"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The agent's name, as messages show it."
+    },
+    "home": {
+      "type": "object",
+      "description": "The agent's user configuration directory.",
+      "additionalProperties": false,
+      "required": ["variable", "default"],
+      "properties": {
+        "variable": {
+          "type": "string",
+          "description": "The environment variable the agent reads to move its directory."
+        },
+        "default": {
+          "type": "string",
+          "description": "The directory when the variable is unset; a leading ~ is the home directory."
+        }
+      }
+    },
+    "instructions": {
+      "type": "string",
+      "description": "The file in home the agent reads into every session; the standards go in it between markers."
+    },
+    "hook_config": {
+      "type": "string",
+      "description": "The JSON file in home that registers hooks, as {\"hooks\": {<event>: [{\"matcher\", \"hooks\": [<command>]}]}}."
+    },
+    "events": {
+      "type": "object",
+      "description": "The agent's event and tool names for each moment a hook runs. A moment left out is not hooked.",
+      "additionalProperties": false,
+      "required": ["after_edit", "turn_end"],
+      "properties": {
+        "before_shell": { "$ref": "#/$defs/event", "description": "Before a shell command runs." },
+        "after_edit": { "$ref": "#/$defs/event", "description": "After the agent's edit tools change a file." },
+        "after_shell": { "$ref": "#/$defs/event", "description": "After a shell command runs." },
+        "turn_end": { "$ref": "#/$defs/event", "description": "When the agent finishes a turn." },
+        "subagent_end": { "$ref": "#/$defs/event", "description": "When a subagent finishes." }
+      }
+    },
+    "edited_files": {
+      "type": "string",
+      "description": "A jq filter that turns the after_edit hook input into the absolute paths of the files edited, one per output."
+    },
+    "after_install": {
+      "type": "string",
+      "description": "What the user still has to do once the installer is done."
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event"],
+      "properties": {
+        "event": { "type": "string", "description": "The hook event name." },
+        "matcher": { "type": "string", "description": "The tool names it applies to, as the agent's matcher syntax." }
+      }
+    }
+  }
+}

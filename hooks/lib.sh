@@ -22,6 +22,12 @@ classify() {
   cd "$root"
 }
 
+# The files an edit tool changed, one a line, from hook input $1. Each agent reports them
+# its own way, so the filter that finds them comes from the installed recipe.
+edited_files() {
+  printf '%s' "$1" | jq -r "$(jq -r .edited_files "$(dirname "$0")/recipe.json")" 2>/dev/null
+}
+
 # Whether the functions of a file of this kind can be measured (lizard reads it).
 measured() { case "$kind" in js|py|rs|go) return 0 ;; esac; return 1; }
 

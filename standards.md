@@ -19,10 +19,10 @@ These apply to every project unless the project's own instructions say otherwise
 
 ## Code
 
-Hooks in `~/.claude/hooks/` format every file you edit and check its length, and when you
-finish a turn they measure the functions in the files you touched. They judge how the code
-is built, not whether it is correct: correctness is the job of the project's own tests,
-type checker and linter, which you still run. Fix what the hooks report; do not work
+Hooks installed with these standards format every file you edit and check its length, and
+when you finish a turn they measure the functions in the files you touched. They judge how
+the code is built, not whether it is correct: correctness is the job of the project's own
+tests, type checker and linter, which you still run. Fix what the hooks report; do not work
 around them. They report only what you made worse in the session, so what they report is
 yours to fix.
 
