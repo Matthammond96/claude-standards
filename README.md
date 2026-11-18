@@ -28,7 +28,8 @@ per session. Nothing is added to any project.
   branch. To add or change one, edit `complexity_limit` in
   [hooks/lib.sh](hooks/lib.sh).
 - **Test files** (`_test.go`, `.test.*`, `.spec.*`, `test_*.py`, `tests/`, `__tests__/`)
-  keep the file length limit, but their functions are not measured.
+  are measured for neither their functions nor their length: a test file follows the
+  size of the code it tests, so keep that code well split instead.
 - **File length** is checked for JavaScript, TypeScript, Python, Rust, Go and shell;
   functions are measured for all of those but shell.
 - **Shell edits** are seen in the repository the session runs in. A file changed in

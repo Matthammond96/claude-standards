@@ -25,8 +25,9 @@ classify() {
 # Whether the functions of a file of this kind can be measured (lizard reads it).
 measured() { case "$kind" in js|py|rs|go) return 0 ;; esac; return 1; }
 
-# A test file: its functions are not measured. A table of cases or a scenario walked
-# through step by step is long and branchy by nature. The file length limit still applies.
+# A test file: neither its functions nor its length are measured. A table of cases or a
+# scenario walked through step by step is long and branchy by nature, and a test file
+# follows the size of the code it tests.
 is_test() {
   case "$file" in
     *_test.go|*.test.*|*.spec.*|*/test_*.py|*_test.py|*/tests/*|*/test/*|*/__tests__/*) return 0 ;;
@@ -115,6 +116,7 @@ remember() {
 too_long() {
   local max="${CLAUDE_ONSAVE_MAX_LINES:-400}" lines was=0 base
   [ "$kind" = "text" ] && return 0
+  is_test && return 0
   lines=$(wc -l < "$file" | tr -d ' ')
   [ "$lines" -gt "$max" ] || return 0
   base=$(baseline "$1")

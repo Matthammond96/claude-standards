@@ -35,8 +35,9 @@ yours to fix.
   you touched it stays as it is, unless the task is to fix it: do not make it worse, say
   that it is over, and offer to fix it separately. A refactor mixed into another change
   makes both harder to review.
-- **No file over 400 lines.** This covers source, tests, scripts, hand-written fixtures and
-  ports of other libraries; only generated data and vendored code are exempt. Before
+- **No file over 400 lines.** This covers source, scripts, hand-written fixtures and ports
+  of other libraries. Tests, generated data and vendored code are exempt: a test file
+  follows the size of the code it tests, so keep the code well split instead. Before
   finishing any task, run `wc -l` on every file you created or edited and split any that is
   over, by responsibility into named modules (never `part1`/`part2`). The hooks check
   code and shell scripts; fixtures and other files are yours to check. Do not add a
