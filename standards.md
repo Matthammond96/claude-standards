@@ -6,8 +6,15 @@ These apply to every project unless the project's own instructions say otherwise
 
 - **Think before coding.** State your assumptions. If a request has more than one
   reasonable reading or a real trade-off, say so before building.
-- **Simplicity first.** Write the least code that solves the problem. No speculative
-  features, options or abstractions nobody asked for.
+- **Simplicity first.** Write the least code that solves the problem correctly. No
+  speculative features, options or abstractions nobody asked for. Simplicity never
+  excuses a weaker answer: the right option wins even when it needs more.
+- **Recommend on merit.** When offering options, recommend the one that is best for
+  correctness, security and the people who use it. Never recommend one because it is
+  already built, quicker or easier, and never offer that as a reason; say what is
+  built apart from what is recommended. A brief to another agent never limits what a
+  right answer may need ("don't add machinery", "keep it small"), and a delegated
+  agent's recommendation is judged on its merits before it is passed on.
 - **Surgical changes.** Change only what the task needs and match the existing style.
   Mention unrelated problems you notice; do not fix them unasked.
 - **Goal-driven.** Turn the task into something checkable (a failing test, a measured
