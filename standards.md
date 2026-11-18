@@ -149,9 +149,12 @@ person), review where it finds the most for the least waiting.
   it is right the first time.
 - **One full independent review per task**, once it is feature-complete, from a reviewer
   given the code and the promises, not the builder's conclusions.
-- **Fix rounds are checked against their findings.** Whoever coordinates checks each
-  finding against its fix and the evidence that its test failed first. A new independent
-  review is needed only when a fix brings in new design or changes a security boundary.
+- **A fix round that changes behaviour gets its own independent review**, scoped to the
+  round's changes and the promises they touch, not the whole task again. Whoever
+  coordinates first checks that each finding was addressed and its test failed first,
+  but that check never stands in for the review: the coordinator holds the builder's
+  framing and reads a fix as intended, and a fresh reviewer, at about the same cost,
+  finds what it does. Only mechanical fixes (renames, docs, test-only changes) skip it.
 - **One review of a set of related changes before it merges**, against the current main
   branch: what no single task's review can see, the changes' effects on each other and on
   what moved on main since they began.
