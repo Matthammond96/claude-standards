@@ -10,7 +10,8 @@ hooks that hold the agent to them.
   [recipe.schema.json](recipe.schema.json). To support another agent, add a recipe.
 - **[hooks/on-save.sh](hooks/on-save.sh)**: after each file the agent edits, formats it with
   the project's own formatter (Prettier, Biome, Ruff, Black, rustfmt, gofmt; only when the
-  project has it configured) and reports a file over 400 lines.
+  project has it configured) and reports a code file over 400 lines (tests and
+  Markdown are exempt).
 - **[hooks/on-shell.sh](hooks/on-shell.sh)**: around each shell command Claude runs, finds
   the files the command changed (with `sed`, a script, a heredoc) and treats them as
   edited too.

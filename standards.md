@@ -43,12 +43,14 @@ yours to fix.
   that it is over, and offer to fix it separately. A refactor mixed into another change
   makes both harder to review.
 - **No file over 400 lines.** This covers source, scripts, hand-written fixtures and ports
-  of other libraries. Tests, generated data and vendored code are exempt: a test file
-  follows the size of the code it tests, so keep the code well split instead. Before
-  finishing any task, run `wc -l` on every file you created or edited and split any that is
-  over, by responsibility into named modules (never `part1`/`part2`). The hooks check
-  code and shell scripts; fixtures and other files are yours to check. Do not add a
-  standards-checking script to the project for these limits: the hooks enforce them.
+  of other libraries. Tests, generated data, vendored code and Markdown are exempt: a test
+  file follows the size of the code it tests, so keep the code well split instead, and a
+  document is as long as its subject needs (split one by topic when a reader can't find
+  their way in it, never to meet a number). Before finishing any task, run `wc -l` on every
+  other file you created or edited and split any that is over, by responsibility into
+  named modules (never `part1`/`part2`). The hooks check code and shell scripts; fixtures
+  and other files are yours to check. Do not add a standards-checking script to the
+  project for these limits: the hooks enforce them.
 - **No loose scripts.** Tooling, build steps and test harnesses are written in the
   project's main typed language and designed like product code: typed data, shared
   modules, type-checked and linted by the same gates. In a TypeScript project that means
