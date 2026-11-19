@@ -155,6 +155,12 @@ person), review where it finds the most for the least waiting.
   but that check never stands in for the review: the coordinator holds the builder's
   framing and reads a fix as intended, and a fresh reviewer, at about the same cost,
   finds what it does. Only mechanical fixes (renames, docs, test-only changes) skip it.
+- **A fix that changes a design gets the design reviewed before it is built.** When a
+  finding needs a new mechanism (a new state, format, message or rule), the builder writes
+  the design down first (what it promises, what it stores, how it fails) and an
+  independent reviewer reads that before any code: a flaw found in a design costs a
+  paragraph, and one found after it is built costs a round. The built round is still
+  reviewed.
 - **One review of a set of related changes before it merges**, against the current main
   branch: what no single task's review can see, the changes' effects on each other and on
   what moved on main since they began.
