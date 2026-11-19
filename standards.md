@@ -139,6 +139,55 @@ understand it quickly.
   fix comes with a test that failed before the fix.
 - **Report plainly** what was verified, what failed and what was not run.
 
+## Reviews
+
+When work is split between a builder and an independent reviewer (another agent or
+person), review where it finds the most for the least waiting.
+
+- **Brief the builder with the reviewer's checklist.** The questions a reviewer will ask
+  of this area (the method below, made specific) go into the builder's brief, so most of
+  it is right the first time.
+- **One full independent review per task**, once it is feature-complete, from a reviewer
+  given the code and the promises, not the builder's conclusions.
+- **A fix round that changes behaviour gets its own independent review**, scoped to the
+  round's changes and the promises they touch, not the whole task again. Whoever
+  coordinates first checks that each finding was addressed and its test failed first,
+  but that check never stands in for the review: the coordinator holds the builder's
+  framing and reads a fix as intended, and a fresh reviewer, at about the same cost,
+  finds what it does. Only mechanical fixes (renames, docs, test-only changes) skip it.
+- **A fix that changes a design gets the design reviewed before it is built.** When a
+  finding needs a new mechanism (a new state, format, message or rule), the builder writes
+  the design down first (what it promises, what it stores, how it fails) and an
+  independent reviewer reads that before any code: a flaw found in a design costs a
+  paragraph, and one found after it is built costs a round. The built round is still
+  reviewed.
+- **One review of a set of related changes before it merges**, against the current main
+  branch: what no single task's review can see, the changes' effects on each other and on
+  what moved on main since they began.
+
+How a reviewer finds what is wrong:
+
+- **Start from the promises, not the diff.** List what the docs, the specification and
+  the threat model promise in this area, and for each, find every path that keeps it,
+  including code outside the diff that the change relies on or affects.
+- **Read beyond the change.** Its callers and callees, the code it replaced, and what
+  changed on the main branch since it began (formats, versions, interfaces).
+- **Take each input's side.** For everything that crosses a trust boundary (network,
+  files, other users, other processes, the environment), ask what a hostile or buggy
+  sender can do: oversize, malformed, replayed, reordered, early, late, never.
+- **Break the timeline.** A crash, restart, timeout or second client at every step: what
+  is lost, held forever, done twice, or left in a state nothing recovers from.
+- **Make the tests fail.** Remove each check the change adds and see which test fails;
+  one that still passes proves nothing. Look for tests that hang instead of failing,
+  that wait on time rather than a condition, or that pass whichever way a race goes.
+- **Hold every word to what was seen.** Each message, log line and doc claim must be
+  true in every case it can appear.
+- **Read the builder's own notes as leads.** "Left alone", "for later", "couldn't test"
+  and "already over the limit" are findings unless the reason holds.
+- **Verify before reporting.** Settle doubts with a small experiment where it is cheap,
+  say which findings were confirmed and which only read, and give the whole report in
+  the final message.
+
 ## Repositories
 
 - **Nothing leaks.** No names, data, paths or identifying details from other projects,
