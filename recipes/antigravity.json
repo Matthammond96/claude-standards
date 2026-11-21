@@ -1,0 +1,33 @@
+{
+  "name": "Antigravity",
+  "home": { "default": "~/.gemini/config" },
+  "instructions": "AGENTS.md",
+  "hook_config": "hooks.json",
+  "hook_section": "claude-standards",
+  "status_message": false,
+  "events": {
+    "before_shell": { "event": "PreToolUse", "matcher": "run_command" },
+    "after_edit": {
+      "event": "PostToolUse",
+      "matcher": "write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content"
+    },
+    "after_shell": { "event": "PostToolUse", "matcher": "run_command" },
+    "turn_end": { "event": "Stop", "flat": true }
+  },
+  "edited_files": "select((.error // \"\") == \"\") | (.cwd // .workspacePaths[0] // \"\") as $cwd | (.toolCall.args | .Path // .TargetFile // .file_path) // empty | if startswith(\"/\") then . else $cwd + \"/\" + . end",
+  "input": {
+    "session_id": ".conversationId // empty",
+    "stop_active": ".continuationActive // false",
+    "stop_when": "(.terminationReason // \"NO_TOOL_CALL\") == \"NO_TOOL_CALL\""
+  },
+  "output": {
+    "before_shell": { "decision": "allow" },
+    "after_edit": {},
+    "after_shell": {},
+    "edit_block": "",
+    "stop_allow": { "decision": "allow" },
+    "stop_block": "continue",
+    "stop_warn": { "decision": "allow" }
+  },
+  "after_install": "Restart running Antigravity sessions to pick it up."
+}

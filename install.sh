@@ -40,14 +40,17 @@ check_recipe() {
 }
 
 # What is wrong with recipe file $1, one problem a line. Reads the parts of JSON Schema
-# that recipe.schema.json uses: object and string types, required, unknown fields and $ref.
+# that recipe.schema.json uses: object, string and boolean types, required, unknown fields
+# and $ref.
 recipe_problems() {
   jq -r --slurpfile schema "$here/recipe.schema.json" '
     def problems($s; $at):
       . as $value
       | if $s["$ref"] then problems($schema[0] | getpath($s["$ref"] | ltrimstr("#/") | split("/")); $at)
         elif $s.type == "string" then (if type == "string" then empty else "\($at) must be a string" end)
+        elif $s.type == "boolean" then (if type == "boolean" then empty else "\($at) must be a boolean" end)
         elif type != "object" then "\($at) must be an object"
+        elif $s.properties | not then empty
         else
           ($s.required[]? | select(in($value) | not) | "\($at).\(.) is missing"),
           (keys[] | select(in($s.properties) | not) | "\($at).\(.) is not a known field"),
@@ -62,9 +65,10 @@ recipe_problems() {
 load_recipe() {
   recipe="$here/recipes/$1.json"
   local variable default
-  variable=$(jq -r .home.variable "$recipe")
+  variable=$(jq -r '.home.variable // empty' "$recipe")
   default=$(jq -r .home.default "$recipe")
-  target="${!variable:-${default/#\~/$HOME}}"
+  target="${default/#\~/$HOME}"
+  [ -n "$variable" ] && [ -n "${!variable:-}" ] && target="${!variable}"
   instructions="$target/$(jq -r .instructions "$recipe")"
   hook_config="$target/$(jq -r .hook_config "$recipe")"
 }
@@ -116,24 +120,29 @@ write_standards() {
 # The hook config with our hooks removed and, for "with", registered again at each moment
 # the recipe names.
 write_hook_config() {
+  mkdir -p "$(dirname "$hook_config")"
   [ -f "$hook_config" ] || echo '{}' > "$hook_config"
   jq --arg mode "$1" --arg dir "$target/hooks" --argjson roles "$roles" --slurpfile recipe "$recipe" '
-    def ours: any(.hooks[]?; (.command // "") | test("/hooks/on-(save|stop|shell)\\.sh( |$)"));
-    def group($role; $at):
-      ($at | if .matcher then {matcher} else {} end)
-      + {hooks: [{type: "command", command: ($dir + "/" + $role.command), timeout: $role.timeout}
-          + (if $role.status then {statusMessage: $role.status} else {} end)]};
-    def register($role; $at):
-      if $role.first then .hooks[$at.event] = [group($role; $at)] + (.hooks[$at.event] // [])
-      else .hooks[$at.event] += [group($role; $at)] end;
-    ($recipe[0].events) as $events
-    | .hooks = ((.hooks // {}) | map_values(map(select(ours | not))))
+    def is_ours: (.command // "") | test("/hooks/on-(save|stop|shell)\\.sh( |$)");
+    def ours: is_ours or any(.hooks[]?; is_ours);
+    def handler($role):
+      {type: "command", command: ($dir + "/" + $role.command), timeout: $role.timeout}
+      + (if $role.status and ($recipe[0].status_message != false) then {statusMessage: $role.status} else {} end);
+    def entry($role; $at):
+      if $at.flat then handler($role)
+      else ($at | if .matcher then {matcher} else {} end) + {hooks: [handler($role)]} end;
+    def register($section; $role; $at):
+      if $role.first then .[$section][$at.event] = [entry($role; $at)] + (.[$section][$at.event] // [])
+      else .[$section][$at.event] += [entry($role; $at)] end;
+    ($recipe[0].hook_section // "hooks") as $section
+    | ($recipe[0].events) as $events
+    | .[$section] = ((.[$section] // {}) | map_values(if type == "array" then map(select(ours | not)) else . end))
     | if $mode == "with" then
         reduce ($roles | to_entries[] | select(.key | in($events))) as $r
-          (.; register($r.value; $events[$r.key]))
+          (.; register($section; $r.value; $events[$r.key]))
       else . end
-    | .hooks |= with_entries(select(.value | length > 0))
-    | if .hooks == {} then del(.hooks) else . end
+    | .[$section] |= with_entries(select((.value | type) != "array" or (.value | length) > 0))
+    | if (.[$section] | to_entries | all((.value | type) != "array")) then del(.[$section]) else . end
   ' "$hook_config" > "$hook_config.new"
   mv "$hook_config.new" "$hook_config"
 }

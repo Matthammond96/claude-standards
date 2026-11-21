@@ -10,14 +10,15 @@
 # and 15 in Go; see complexity_limit), CLAUDE_QUALITY_FUNCTION_LINES (60),
 # CLAUDE_QUALITY_PARAMS (5), CLAUDE_ONSAVE_MAX_LINES (400, lines per file).
 # Switches: CLAUDE_ONSAVE=0 or CLAUDE_QUALITY=0 turns it off.
-[ "${CLAUDE_ONSAVE:-1}" = "0" ] || [ "${CLAUDE_QUALITY:-1}" = "0" ] && exit 0
 here=$(cd "$(dirname "$0")" && pwd)
 . "$here/lib.sh"
+[ "${CLAUDE_ONSAVE:-1}" = "0" ] || [ "${CLAUDE_QUALITY:-1}" = "0" ] && { reply stop_allow; exit 0; }
 lizard="$here/.venv/bin/lizard"
 input=$(cat)
-list=$(edited_list "$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)")
-[ -s "$list" ] || exit 0
-again=$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null)
+list=$(edited_list "$(session_id "$input")")
+[ -s "$list" ] || { reply stop_allow; exit 0; }
+[ "$(input_field '.input.stop_when' 'true' "$input")" = "true" ] || { reply stop_allow; exit 0; }
+again=$(input_field '.input.stop_active' '.stop_hook_active // false' "$input")
 len="${CLAUDE_QUALITY_FUNCTION_LINES:-60}"; par="${CLAUDE_QUALITY_PARAMS:-5}"
 
 # The functions of file $1 over a limit, with complexity limit $2, one a line:
@@ -65,13 +66,14 @@ problems=$(
   done | unseen "$list" | head -40
 )
 
-if [ -z "$problems" ]; then rm -f "$list"; exit 0; fi
+if [ -z "$problems" ]; then rm -f "$list"; reply stop_allow; exit 0; fi
 if [ "$again" = "true" ]; then
   rm -f "$list"
-  jq -n '{systemMessage: "Code quality limits are still exceeded in files edited this turn."}'
+  reply stop_warn '{"systemMessage":"Code quality limits are still exceeded in files edited this turn."}'
   exit 0
 fi
-jq -n --arg reason "Code quality: you put these over the limits, or further over them, in this session.
+decision=$(recipe_get '.output.stop_block // "block"')
+jq -n --arg decision "$decision" --arg reason "Code quality: you put these over the limits, or further over them, in this session.
 $problems
 Fix them: extract named helpers, flatten nesting, group parameters, split files by responsibility. Do not change behaviour." \
-  '{decision: "block", reason: $reason}'
+  '{decision: $decision, reason: $reason}'

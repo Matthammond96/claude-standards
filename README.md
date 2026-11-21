@@ -1,10 +1,11 @@
 # claude-standards
 
-Coding standards for every coding-agent session on a machine (Claude Code, Codex), and the
-hooks that hold the agent to them.
+Coding standards for every coding-agent session on a machine (Claude Code, Codex,
+Antigravity), and the hooks that hold the agent to them.
 
 - **[standards.md](standards.md)**: the rules, installed into the agent's instructions
-  (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`) so every session reads them.
+  (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/config/AGENTS.md`) so every
+  session reads them.
 - **[recipes/](recipes/)**: one recipe per agent, saying where it keeps its instructions
   and hooks and what its hooks are called, checked against
   [recipe.schema.json](recipe.schema.json). To support another agent, add a recipe.
@@ -48,11 +49,12 @@ Needs `jq` and `python3` (with `venv`).
 
 ```sh
 git clone git@github.com:Matthammond96/claude-standards.git
-claude-standards/install.sh --claude-code --codex
+claude-standards/install.sh --claude-code --codex --antigravity
 ```
 
 Name one or more agents; each is a recipe in [recipes/](recipes/), and `./install.sh` alone
-lists them. For each agent, in its directory (`~/.claude`, `~/.codex`), the installer:
+lists them. For each agent, in its directory (`~/.claude`, `~/.codex`, `~/.gemini/config`),
+the installer:
 
 1. copies the hooks, and the agent's recipe, to `hooks/`;
 2. installs the analyser ([lizard](https://github.com/terryyin/lizard), pinned) into a
@@ -64,8 +66,8 @@ lists them. For each agent, in its directory (`~/.claude`, `~/.codex`), the inst
    every other setting and hook.
 
 Restart running sessions afterwards. Codex runs only hooks you have trusted: review them
-with `/hooks`. The agent's own variable (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`) installs
-somewhere else.
+with `/hooks`. For agents that support one, the agent's own variable (`CLAUDE_CONFIG_DIR`,
+`CODEX_HOME`) installs somewhere else.
 
 ## Update
 
@@ -73,7 +75,7 @@ Edit the standards, hooks or recipes here, never the installed copies, then on e
 machine:
 
 ```sh
-git pull && ./install.sh --claude-code --codex
+git pull && ./install.sh --claude-code --codex --antigravity
 ```
 
 Running the installer again replaces what it installed before.
@@ -81,7 +83,7 @@ Running the installer again replaces what it installed before.
 ## Uninstall
 
 ```sh
-./install.sh --claude-code --codex --uninstall
+./install.sh --claude-code --codex --antigravity --uninstall
 ```
 
 ## Switches

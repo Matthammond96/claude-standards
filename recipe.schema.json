@@ -14,11 +14,11 @@
       "type": "object",
       "description": "The agent's user configuration directory.",
       "additionalProperties": false,
-      "required": ["variable", "default"],
+      "required": ["default"],
       "properties": {
         "variable": {
           "type": "string",
-          "description": "The environment variable the agent reads to move its directory."
+          "description": "The environment variable the agent reads to move its directory, if it has one."
         },
         "default": {
           "type": "string",
@@ -32,7 +32,15 @@
     },
     "hook_config": {
       "type": "string",
-      "description": "The JSON file in home that registers hooks, as {\"hooks\": {<event>: [{\"matcher\", \"hooks\": [<command>]}]}}."
+      "description": "The JSON file in home that registers hooks."
+    },
+    "hook_section": {
+      "type": "string",
+      "description": "Top-level key in hook_config holding the event map; defaults to \"hooks\"."
+    },
+    "status_message": {
+      "type": "boolean",
+      "description": "Whether hook handlers accept a statusMessage field; defaults to true."
     },
     "events": {
       "type": "object",
@@ -51,6 +59,30 @@
       "type": "string",
       "description": "A jq filter that turns the after_edit hook input into the absolute paths of the files edited, one per output."
     },
+    "input": {
+      "type": "object",
+      "description": "Optional jq filters for hook stdin fields that differ from Claude Code's defaults.",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": { "type": "string", "description": "Extracts the session identifier; defaults to \".session_id // empty\"." },
+        "stop_active": { "type": "string", "description": "True when turn_end is re-entering after a previous stop hook; defaults to \".stop_hook_active // false\"." },
+        "stop_when": { "type": "string", "description": "Must evaluate to true for turn_end to check and hold the turn; defaults to \"true\"." }
+      }
+    },
+    "output": {
+      "type": "object",
+      "description": "Optional hook stdout shapes when the agent differs from Claude Code's defaults.",
+      "additionalProperties": false,
+      "properties": {
+        "before_shell": { "type": "object", "description": "Static JSON reply for before_shell pass-through; omitted prints nothing." },
+        "after_edit": { "type": "object", "description": "Static JSON reply for after_edit pass-through; omitted prints nothing." },
+        "after_shell": { "type": "object", "description": "Static JSON reply for after_shell pass-through; omitted prints nothing." },
+        "edit_block": { "type": "string", "description": "Decision value when after_edit reports a problem; defaults to \"block\". Empty defers reporting to turn_end." },
+        "stop_allow": { "type": "object", "description": "Static JSON reply when turn_end allows stopping; omitted prints nothing." },
+        "stop_block": { "type": "string", "description": "Decision value when turn_end keeps the agent going; defaults to \"block\"." },
+        "stop_warn": { "type": "object", "description": "Static JSON reply when problems remain on re-entry; defaults to a systemMessage." }
+      }
+    },
     "after_install": {
       "type": "string",
       "description": "What the user still has to do once the installer is done."
@@ -63,7 +95,8 @@
       "required": ["event"],
       "properties": {
         "event": { "type": "string", "description": "The hook event name." },
-        "matcher": { "type": "string", "description": "The tool names it applies to, as the agent's matcher syntax." }
+        "matcher": { "type": "string", "description": "The tool names it applies to, as the agent's matcher syntax." },
+        "flat": { "type": "boolean", "description": "True when handlers sit directly in the event array without a {hooks: [...]} wrapper." }
       }
     }
   }

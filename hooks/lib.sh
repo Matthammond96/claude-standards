@@ -22,10 +22,39 @@ classify() {
   cd "$root"
 }
 
+hook_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+recipe_file="$hook_dir/recipe.json"
+
+# Reads jq expression $1 from the installed recipe.
+recipe_get() {
+  jq -r "$1" "$recipe_file" 2>/dev/null
+}
+
+# Applies the jq filter at recipe path $1 (or fallback $2) to hook input $3.
+input_field() {
+  local filter
+  filter=$(jq -r "$1 // empty" "$recipe_file" 2>/dev/null)
+  printf '%s' "$3" | jq -r "${filter:-$2}" 2>/dev/null
+}
+
+# Prints the static JSON reply configured at .output[$1], or $2 if not configured.
+reply() {
+  local out
+  out=$(jq -c --arg k "$1" '.output[$k] // empty' "$recipe_file" 2>/dev/null)
+  [ -n "$out" ] || out="${2:-}"
+  [ -n "$out" ] && printf '%s\n' "$out"
+  return 0
+}
+
+# The session identifier from hook input $1.
+session_id() {
+  input_field '.input.session_id' '.session_id // empty' "$1"
+}
+
 # The files an edit tool changed, one a line, from hook input $1. Each agent reports them
 # its own way, so the filter that finds them comes from the installed recipe.
 edited_files() {
-  printf '%s' "$1" | jq -r "$(jq -r .edited_files "$(dirname "$0")/recipe.json")" 2>/dev/null
+  input_field '.edited_files' 'empty' "$1"
 }
 
 # Whether the functions of a file of this kind can be measured (lizard reads it).

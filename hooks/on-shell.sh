@@ -7,17 +7,20 @@
 # What it can't see: files changed in another repository than the one the session is in,
 # and files committed by the same command that changed them.
 # Switches: CLAUDE_ONSAVE=0 turns it off.
-[ "${CLAUDE_ONSAVE:-1}" = "0" ] && exit 0
 . "$(dirname "$0")/lib.sh"
+phase="$1"
+[ "${CLAUDE_ONSAVE:-1}" = "0" ] && { reply "${phase}_shell"; exit 0; }
 input=$(cat)
-session=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
+session=$(session_id "$input")
 mark=$(session_file "$session" mark)
-if [ "$1" = "before" ]; then
+if [ "$phase" = "before" ]; then
   mkdir -p "$(dirname "$mark")" && touch "$mark"
+  reply before_shell
   exit 0
 fi
-[ -f "$mark" ] || exit 0
-top=$(git -C "$(printf '%s' "$input" | jq -r '.cwd // "."' 2>/dev/null)" rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$mark" ] || { reply after_shell; exit 0; }
+cwd=$(printf '%s' "$input" | jq -r '.cwd // .workspacePaths[0] // "."' 2>/dev/null)
+top=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || { reply after_shell; exit 0; }
 list=$(edited_list "$session")
 
 { git -C "$top" diff --name-only -z HEAD 2>/dev/null; git -C "$top" ls-files -z --others --exclude-standard; } |
@@ -27,4 +30,5 @@ list=$(edited_list "$session")
     # In a subshell: classify moves to the file's own project.
     (classify && remember "$list" && format_file)
   done
+reply after_shell
 exit 0
